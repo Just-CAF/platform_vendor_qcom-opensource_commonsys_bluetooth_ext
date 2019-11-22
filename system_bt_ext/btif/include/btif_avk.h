@@ -536,7 +536,7 @@ bool btif_avk_is_a2dp_sink_handoff_required(int idx);
 **
 ** Returns          void
 *******************************************************************************/
-void btif_avk_initiate_sink_handoff(int idx, bool audio_state_changed);
+void btif_avk_initiate_sink_handoff(RawAddress bd_addr);
 
 /*******************************************************************************
 **

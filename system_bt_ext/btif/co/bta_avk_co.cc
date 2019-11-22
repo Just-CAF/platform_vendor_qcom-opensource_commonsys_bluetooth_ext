@@ -280,9 +280,10 @@ uint8_t* bta_avk_co_get_peer_codec_info(tBTA_AVK_HNDL hndl) {
     APPL_TRACE_ERROR("%s: peer index out of bounds: %d", __func__, index);
     return NULL;
   }
-  APPL_TRACE_ERROR("%s ", __func__);
-  for (int i = 0; i < AVDT_CODEC_SIZE; i++)
-    APPL_TRACE_ERROR("%d ", bta_avk_co_cb.peers[index].codec_config[i]);
+  const uint8_t* p_codec_info = bta_avk_co_cb.peers[index].codec_config;
+  APPL_TRACE_DEBUG("%s: p_codec_info[%x:%x:%x:%x:%x:%x] index:%d", __func__,
+                     p_codec_info[1], p_codec_info[2], p_codec_info[3],
+                     p_codec_info[4], p_codec_info[5], p_codec_info[6], index);
   return bta_avk_co_cb.peers[index].codec_config;
 }
 
@@ -1371,6 +1372,28 @@ static void bta_avk_co_save_new_codec_config(tBTA_AVK_CO_PEER* p_peer,
 
   // Protect access to bta_avk_co_cb.codec_config
   mutex_global_unlock();
+}
+
+bool bta_avk_co_save_config(uint8_t index, const uint8_t* pdata) {
+  tBTA_AVK_CO_PEER *p_peer;
+  BTIF_TRACE_DEBUG("%s save config to index:%d", __func__, index);
+
+  /* Sanity check */
+  if (index >= BTA_AVK_CO_NUM_ELEMENTS(bta_avk_co_cb.peers)) {
+    BTIF_TRACE_ERROR("%s: peer index out of bounds: %d", __func__, index);
+    return false;
+  }
+
+  /* Protect access to bta_av_co_cb.peers*/
+  mutex_global_lock();
+
+  p_peer = &bta_avk_co_cb.peers[index];
+  memcpy(p_peer->codec_config, pdata, AVDT_CODEC_SIZE);
+
+  /*Protect access to bta_av_co_cb.peers*/
+  mutex_global_unlock();
+
+  return true;
 }
 
 void bta_avk_co_get_peer_params(tA2DP_ENCODER_INIT_PEER_PARAMS* p_peer_params) {

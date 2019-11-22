@@ -324,7 +324,6 @@ static bool isShoMcastEnabled = false;
 static void sleep_ms(period_ms_t timeout_ms);
 static bt_status_t set_addressed_player_rsp(RawAddress* bd_addr,
                                             btrc_status_t rsp_status);
-extern void btif_avk_sink_ho_through_avrcp_pback_status(RawAddress bd_addr);
 extern void btif_avk_set_remote_playing_state(int index, bool playing_state);
 extern bool btif_avk_device_in_sink_role();
 
@@ -4675,7 +4674,7 @@ static void handle_notification_response(tBTA_AVK_META_MSG* pmeta_msg,
          */
         BTIF_TRACE_DEBUG("%s: Interim play_status: %d", __func__, p_rsp->param.play_status);
         if (p_rsp->param.play_status == AVRC_PLAYSTATE_PLAYING) {
-          btif_avk_sink_ho_through_avrcp_pback_status(rc_addr);
+          btif_avk_initiate_sink_handoff(rc_addr);
           rc_start_play_status_timer(p_dev);
         }
         HAL_CBACK(bt_avk_rc_ctrl_callbacks, play_status_changed_cb, &rc_addr,
@@ -4776,7 +4775,7 @@ static void handle_notification_response(tBTA_AVK_META_MSG* pmeta_msg,
          */
         BTIF_TRACE_DEBUG("%s: Changed play_status: %d", __func__, p_rsp->param.play_status);
         if (p_rsp->param.play_status == AVRC_PLAYSTATE_PLAYING) {
-          btif_avk_sink_ho_through_avrcp_pback_status(rc_addr);
+          btif_avk_initiate_sink_handoff(rc_addr);
           rc_start_play_status_timer(p_dev);
           get_element_attribute_cmd(AVRC_MAX_NUM_MEDIA_ATTR_ID, attr_list,
                                     p_dev);
