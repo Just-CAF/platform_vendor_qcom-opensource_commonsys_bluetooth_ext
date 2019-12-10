@@ -1546,7 +1546,7 @@ void bta_avk_conn_chg(tBTA_AVK_DATA* p_data) {
     }
 
     if (p_cb->conn_audio == 0 && p_cb->conn_video == 0 && (p_cb->conn_lcb & ~mask) == 0) {
-      APPL_TRACE_WARNING("No other AVK connection up, close all RC");
+      BTIF_TRACE_DEBUG("%s No other AVK connection up, close all RC",__func__);
       bta_avk_close_all_rc(p_cb);
     }
 
@@ -1620,6 +1620,9 @@ void bta_avk_disable(tBTA_AVK_CB* p_cb, UNUSED_ATTR tBTA_AVK_DATA* p_data) {
     }
     alarm_free(p_cb->accept_signalling_timer[xx]);
     p_cb->accept_signalling_timer[xx] = NULL;
+
+    alarm_free(p_cb->avdt_close_timer[xx]);
+    p_cb->avdt_close_timer[xx] = NULL;
   }
 
   alarm_free(p_cb->browsing_channel_open_timer);

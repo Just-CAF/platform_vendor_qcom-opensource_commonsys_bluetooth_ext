@@ -97,6 +97,10 @@
 #define BTA_AVK_RC_DISC_TIME_VAL 3500
 #endif
 
+
+#ifndef BTA_TIMEOUT_AVDT_CLOSE_MS
+#define BTA_TIMEOUT_AVDT_CLOSE_MS 200
+#endif
 /* the timer in milliseconds to guard against link busy and AVDT_CloseReq failed
  * to be sent */
 #ifndef BTA_AVK_CLOSE_REQ_TIME_VAL
@@ -446,7 +450,7 @@ static void bta_avk_update_flow_spec(tBTA_AVK_SCB* p_scb) {
  ******************************************************************************/
 static void bta_avk_st_rc_timer(tBTA_AVK_SCB* p_scb,
                                UNUSED_ATTR tBTA_AVK_DATA* p_data) {
-  APPL_TRACE_DEBUG("%s: rc_handle:%d, use_rc: %d", __func__, p_scb->rc_handle,
+  BTIF_TRACE_DEBUG("%s: rc_handle:%d, use_rc: %d", __func__, p_scb->rc_handle,
                    p_scb->use_rc);
   /* for outgoing RC connection as INT/CT */
   if ((p_scb->rc_handle == BTA_AVK_RC_HANDLE_NONE) &&
@@ -1385,7 +1389,7 @@ void bta_avk_config_ind(tBTA_AVK_SCB* p_scb, tBTA_AVK_DATA* p_data) {
   local_sep = bta_avk_get_scb_sep_type(p_scb, p_msg->handle);
   p_scb->avdt_label = p_data->str_msg.msg.hdr.label;
 
-  APPL_TRACE_DEBUG("%s: local_sep = %d", __func__, local_sep);
+  BTIF_TRACE_DEBUG("%s: local_sep = %d", __func__, local_sep);
   A2DP_DumpCodecInfo(p_evt_cfg->codec_info);
 
   memcpy(p_scb->cfg.codec_info, p_evt_cfg->codec_info, AVDT_CODEC_SIZE);
@@ -1400,8 +1404,9 @@ void bta_avk_config_ind(tBTA_AVK_SCB* p_scb, tBTA_AVK_DATA* p_data) {
     APPL_TRACE_WARNING(" bta_avk_config_ind config_ind called before Open");
     p_scb->coll_mask |= BTA_AVK_COLL_SETCONFIG_IND;
   }
-  APPL_TRACE_DEBUG(" bta_avk_config_ind p_scb->hdi = %d ", p_scb->hdi);
+  BTIF_TRACE_DEBUG(" bta_avk_config_ind p_scb->hdi = %d ", p_scb->hdi);
   alarm_cancel(bta_avk_cb.accept_signalling_timer[p_scb->hdi]);
+  alarm_cancel(bta_avk_cb.avdt_close_timer[p_scb->hdi]);
 
   /* if no codec parameters in configuration, fail */
   if ((p_evt_cfg->num_codec == 0) ||
@@ -1442,7 +1447,7 @@ void bta_avk_config_ind(tBTA_AVK_SCB* p_scb, tBTA_AVK_DATA* p_data) {
 
     p_scb->num_seps = 1;
     p_scb->sep_info_idx = 0;
-    APPL_TRACE_DEBUG("%s: SEID: %d use_rc: %d cur_psc_mask:0x%x", __func__,
+    BTIF_TRACE_DEBUG("%s: SEID: %d use_rc: %d cur_psc_mask:0x%x", __func__,
                      p_info->seid, p_scb->use_rc, p_scb->cur_psc_mask);
     /*  in case of A2DP SINK this is the first time peer data is being sent to
      * co functions */
@@ -3176,12 +3181,15 @@ void bta_avk_start_failed(tBTA_AVK_SCB* p_scb, UNUSED_ATTR tBTA_AVK_DATA* p_data
  * Returns          void
  *
  ******************************************************************************/
-void bta_avk_str_closed(tBTA_AVK_SCB* p_scb, tBTA_AVK_DATA* p_data) {
+void bta_avk_avdt_close_timer_timeout(void *data_in) {
+  BTIF_TRACE_ERROR("%s",__func__);
+  tBTA_AVK_SCB* p_scb = (tBTA_AVK_SCB*)data_in; 
+
   tBTA_AVK data;
   tBTA_AVK_EVT event;
   uint8_t policy = HCI_ENABLE_SNIFF_MODE;
 
-  APPL_TRACE_WARNING(
+  BTIF_TRACE_DEBUG(
       "%s: peer_addr=%s open_status=%d chnl=%d hndl=%d co_started=%d", __func__,
       p_scb->peer_addr.ToString().c_str(), p_scb->open_status, p_scb->chnl,
       p_scb->hndl, p_scb->co_started);
@@ -3198,7 +3206,7 @@ void bta_avk_str_closed(tBTA_AVK_SCB* p_scb, tBTA_AVK_DATA* p_data) {
   L2CA_SetMediaStreamChannel(p_scb->l2c_cid, false);
 
   if (p_scb->open_status != BTA_AVK_SUCCESS) {
-    APPL_TRACE_WARNING("%s Open Fail !!!", __func__);
+    APPL_TRACE_WARNING("%s Fail !!!", __func__);
     /* must be failure when opening the stream */
     data.open.bd_addr = p_scb->peer_addr;
     data.open.status = p_scb->open_status;
@@ -3215,10 +3223,10 @@ void bta_avk_str_closed(tBTA_AVK_SCB* p_scb, tBTA_AVK_DATA* p_data) {
 
     bta_sys_conn_close(BTA_ID_AVK, p_scb->hdi, p_scb->peer_addr);
     bta_sys_conn_close(BTA_ID_AVK, bta_avk_cb.audio_open_cnt, p_scb->peer_addr);
-    bta_avk_cleanup(p_scb, p_data);
+    bta_avk_cleanup(p_scb, NULL);
     (*bta_avk_cb.p_cback)(event, &data);
   } else {
-    APPL_TRACE_WARNING("%s Open success !!!", __func__);
+    APPL_TRACE_WARNING("%s success !!!", __func__);
     /* do stop if we were started */
     if (p_scb->co_started) {
       bta_avk_str_stopped(p_scb, NULL);
@@ -3232,12 +3240,25 @@ void bta_avk_str_closed(tBTA_AVK_SCB* p_scb, tBTA_AVK_DATA* p_data) {
 
       bta_sys_conn_close(BTA_ID_AVK, p_scb->hdi, p_scb->peer_addr);
       bta_sys_conn_close(BTA_ID_AVK, bta_avk_cb.audio_open_cnt, p_scb->peer_addr);
-      bta_avk_cleanup(p_scb, p_data);
+      bta_avk_cleanup(p_scb, NULL);
       (*bta_avk_cb.p_cback)(event, &data);
     }
   }
 }
 
+void bta_avk_str_closed(tBTA_AVK_SCB* p_scb, tBTA_AVK_DATA* p_data) {
+  BTIF_TRACE_DEBUG(
+      "%s: peer_addr=%s open_status=%d chnl=%d hndl=%d co_started=%d", __func__,
+      p_scb->peer_addr.ToString().c_str(), p_scb->open_status, p_scb->chnl,
+      p_scb->hndl, p_scb->co_started);
+  /* in codec switch case, remote phone would do avdt_close first, and then a  */
+  /* avdt setconfig, buffer the close event for 200ms for this case. this can  */
+  /* avoid the cost in bta, btif, and l2cap layer, also avoid disconnect avrcp */
+  /* connections.                                                              */
+  alarm_set_on_mloop(bta_avk_cb.avdt_close_timer[p_scb->hdi],
+    BTA_TIMEOUT_AVDT_CLOSE_MS,
+    bta_avk_avdt_close_timer_timeout, p_scb);
+}
 /*******************************************************************************
  *
  * Function         bta_avk_clr_cong
