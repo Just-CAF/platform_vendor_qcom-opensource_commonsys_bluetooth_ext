@@ -2166,6 +2166,21 @@ static bool btif_avk_state_opened_handler(btif_sm_event_t event, void* p_data,
                             __func__, index);
       }
       break;
+    /* handle setconfig for codec switch case */
+    case BTIF_AVK_SINK_CONFIG_REQ_EVT: {
+      btif_avk_sink_config_req_t req;
+      // copy to avoid alignment problems
+      memcpy(&req, p_data, sizeof(req));
+
+      BTIF_TRACE_WARNING(
+          "%s: BTIF_AVK_SINK_CONFIG_REQ_EVT sample_rate=%d "
+          "channel_count=%d",
+          __func__, req.sample_rate, req.channel_count);
+      if (bt_avk_sink_callbacks != NULL) {
+        HAL_CBACK(bt_avk_sink_callbacks, audio_config_cb, req.peer_bd,
+                  req.sample_rate, req.channel_count);
+      }
+    } break;
 
       CHECK_RC_EVENT(event, (tBTA_AVK*)p_data);
 
@@ -2245,6 +2260,23 @@ static bool btif_avk_state_started_handler(btif_sm_event_t event, void* p_data,
 
     case BTIF_SM_EXIT_EVT:
       break;
+
+    /* handle setconfig for codec switch case */
+    case BTIF_AVK_SINK_CONFIG_REQ_EVT: {
+      btif_avk_sink_config_req_t req;
+      // copy to avoid alignment problems
+      memcpy(&req, p_data, sizeof(req));
+
+      BTIF_TRACE_WARNING(
+          "%s: BTIF_AVK_SINK_CONFIG_REQ_EVT sample_rate=%d "
+          "channel_count=%d",
+          __func__, req.sample_rate, req.channel_count);
+      if (bt_avk_sink_callbacks != NULL) {
+        HAL_CBACK(bt_avk_sink_callbacks, audio_config_cb, req.peer_bd,
+                  req.sample_rate, req.channel_count);
+      }
+    } break;
+
 
     case BTIF_AVK_START_STREAM_REQ_EVT:
       /* we were remotely started, just ack back the local request */
@@ -6280,11 +6312,11 @@ void btif_avk_initiate_sink_handoff(RawAddress bd_addr) {
     uint8_t* a2dp_codec_config = bta_avk_co_get_peer_codec_info(btif_avk_cb[idx].bta_handle);
     if (a2dp_codec_config != NULL && btif_a2dp_sink_check_sho(a2dp_codec_config, idx)) {
         BTIF_TRACE_DEBUG("%s SHO index:%d",__func__,idx);
-        /* Before create a new audiotrack, we need to stop and delete old audiotrack. */
         btif_report_audio_state(BTAV_AUDIO_STATE_STARTED, &(btif_avk_cb[idx].peer_bda));
         btif_avk_cb[idx].current_playing = true;
         btif_avk_cb[!idx].current_playing = false;
         if (btif_a2dp_sink_check_codec(a2dp_codec_config)) {
+            /* Before create a new audiotrack, we need to stop and delete old audiotrack. */
             BTIF_TRACE_DEBUG("%s update codec and index",__func__);
             btif_a2dp_sink_audio_handle_stop_decoding();
             btif_a2dp_sink_clear_track_event();

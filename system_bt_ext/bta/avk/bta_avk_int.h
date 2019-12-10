@@ -741,6 +741,8 @@ typedef struct {
   alarm_t* browsing_channel_open_timer;  /* timer to initiate avrcp browsing open channel*/
   alarm_t*
       accept_signalling_timer[BTA_AVK_NUM_STRS];  /* timer to monitor signalling when accepting */
+  alarm_t*
+      avdt_close_timer[BTA_AVK_NUM_STRS];  /* timer to monitor avdt close */
   uint32_t sdp_a2dp_handle;     /* SDP record handle for audio src */
   uint32_t sdp_a2dp_snk_handle; /* SDP record handle for audio snk */
   uint32_t sdp_vdp_handle;      /* SDP record handle for video src */

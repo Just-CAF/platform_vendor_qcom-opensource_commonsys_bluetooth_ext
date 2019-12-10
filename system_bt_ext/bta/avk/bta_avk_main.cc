@@ -280,6 +280,9 @@ static void bta_avk_api_enable(tBTA_AVK_DATA* p_data) {
   {
     bta_avk_cb.accept_signalling_timer[j] =
       alarm_new("bta_av.accept_signalling_timer");
+    
+    bta_avk_cb.avdt_close_timer[j] =
+      alarm_new("bta_av.avdt_close_timer");
   }
 
   bta_avk_cb.browsing_channel_open_timer =
