@@ -4674,8 +4674,8 @@ static void handle_notification_response(tBTA_AVK_META_MSG* pmeta_msg,
          */
         BTIF_TRACE_DEBUG("%s: Interim play_status: %d", __func__, p_rsp->param.play_status);
         if (p_rsp->param.play_status == AVRC_PLAYSTATE_PLAYING) {
-          btif_avk_initiate_sink_handoff(rc_addr);
           rc_start_play_status_timer(p_dev);
+          btif_avk_initiate_sink_handoff(rc_addr);
         }
         HAL_CBACK(bt_avk_rc_ctrl_callbacks, play_status_changed_cb, &rc_addr,
                   (btrc_play_status_t)p_rsp->param.play_status);
@@ -4775,10 +4775,10 @@ static void handle_notification_response(tBTA_AVK_META_MSG* pmeta_msg,
          */
         BTIF_TRACE_DEBUG("%s: Changed play_status: %d", __func__, p_rsp->param.play_status);
         if (p_rsp->param.play_status == AVRC_PLAYSTATE_PLAYING) {
-          btif_avk_initiate_sink_handoff(rc_addr);
           rc_start_play_status_timer(p_dev);
           get_element_attribute_cmd(AVRC_MAX_NUM_MEDIA_ATTR_ID, attr_list,
                                     p_dev);
+          btif_avk_initiate_sink_handoff(rc_addr);
         } else {
           avk_rc_stop_play_status_timer(p_dev);
         }
