@@ -5017,7 +5017,8 @@ bt_status_t btif_avk_sink_execute_service(bool b_enable) {
 
     BTA_AvkEnable(BTA_SEC_AUTHENTICATE, BTA_AVK_FEAT_NO_SCO_SSPD|BTA_AVK_FEAT_RCCT|
                                         BTA_AVK_FEAT_METADATA|BTA_AVK_FEAT_VENDOR|
-                                        BTA_AVK_FEAT_ADV_CTRL|BTA_AVK_FEAT_RCTG|feat_delay_rpt,
+                                        BTA_AVK_FEAT_ADV_CTRL|BTA_AVK_FEAT_RCTG|
+                                        BTA_AVK_FEAT_BROWSE|feat_delay_rpt,
                                         bte_avk_callback);
 
     for (i = 0; i < btif_max_avk_clients ; i++) {
