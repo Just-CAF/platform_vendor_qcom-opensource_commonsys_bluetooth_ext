@@ -533,7 +533,7 @@ static void bta_avk_api_register(tBTA_AVK_DATA* p_data) {
   uint16_t profile_initialized = p_data->api_reg.service_uuid;
   p_bta_avk_cfg = (tBTA_AVK_CFG*)&bta_avk_sink_cfg;
 
-  APPL_TRACE_DEBUG("%s(): profile: 0x%x, channle: 0x%x", __func__,
+  BTIF_TRACE_DEBUG("%s(): profile: 0x%x, channle: 0x%x", __func__,
                    profile_initialized, registr.chnl);
   if (p_bta_avk_cfg == NULL) {
     APPL_TRACE_ERROR("AVK configuration is null!");
@@ -667,7 +667,7 @@ static void bta_avk_api_register(tBTA_AVK_DATA* p_data) {
         codec_index_max = BTAV_A2DP_CODEC_INDEX_SINK_MAX;
       }
       
-      APPL_TRACE_ERROR("%s: codec_index min:max %d:%d", __func__, codec_index_min, codec_index_max);
+      BTIF_TRACE_DEBUG("%s: codec_index min:max %d:%d", __func__, codec_index_min, codec_index_max);
 
       /* Initialize handles to zero */
       for (int xx = 0; xx < BTAV_A2DP_CODEC_INDEX_MAX; xx++) {
@@ -679,21 +679,21 @@ static void bta_avk_api_register(tBTA_AVK_DATA* p_data) {
       for (int i = codec_index_min; i < codec_index_max; i++) {
         btav_a2dp_codec_index_t codec_index =
             static_cast<btav_a2dp_codec_index_t>(i);
-        APPL_TRACE_DEBUG("%s: codec_index = %d", __func__, codec_index);
-        A2dpCodecs* a2dp_codecs = bta_avk_get_a2dp_codecs();
+        BTIF_TRACE_DEBUG("%s: codec_index = %d", __func__, codec_index);
+        A2dpCodecs* a2dp_codecs = bta_avk_get_a2dp_default_codecs();
         if (a2dp_codecs != nullptr) {
           std::list<A2dpCodecConfig*> list_codec =
-                        a2dp_codecs->orderedSourceCodecs();
+                        a2dp_codecs->orderedSinkCodecs();
           bool found = false;
           for (auto it = list_codec.begin(); it != list_codec.end(); it++) {
             if ((*it)->codecIndex() == codec_index) {
-              APPL_TRACE_DEBUG("%s: Hit the codec in ordered source", __func__);
+              BTIF_TRACE_DEBUG("%s: Hit the codec in ordered sink", __func__);
               found = true;
               break;
             }
           }
           if (!found) {
-            APPL_TRACE_DEBUG("%s: Can't support codec in ordered source", __func__);
+            BTIF_TRACE_DEBUG("%s: Can't support codec in ordered sink", __func__);
             continue;
           }
         }

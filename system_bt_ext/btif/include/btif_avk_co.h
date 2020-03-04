@@ -67,6 +67,8 @@ void bta_avk_co_peer_init(
 // codecs, or nullptr if no codecs are initialized.
 A2dpCodecs* bta_avk_get_a2dp_codecs(void);
 
+A2dpCodecs* bta_avk_get_a2dp_default_codecs(void);
+
 A2dpCodecs* bta_avk_get_peer_a2dp_codecs(const RawAddress& bd_addr);
 
 // Gets the current A2DP codec.
