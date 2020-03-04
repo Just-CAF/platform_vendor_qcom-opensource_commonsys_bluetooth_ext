@@ -2532,15 +2532,11 @@ static bool btif_avk_state_started_handler(btif_sm_event_t event, void* p_data,
 
       if ((p_av->suspend.status != BTA_AVK_SUCCESS) || hal_suspend_pending) {
         BTIF_TRACE_DEBUG("%s: Suspend failed or HAL pending ack, ack the suspend",__func__);
-        btif_a2dp_on_suspended((tBTA_AV_SUSPEND *)&p_av->suspend);
+        btif_a2dp_sink_on_suspended((tBTA_AV_SUSPEND *)&p_av->suspend);
       } else if (!btif_avk_is_local_started_on_other_idx(index)) {
         BTIF_TRACE_DEBUG("%s: Other device not locally started",__func__);
-        if (btif_avk_check_flag_remote_suspend(index)){
-          BTIF_TRACE_DEBUG("%s: Remote suspended on index = %d, don't ack the suspend ", __func__, index);
-        } else{
           BTIF_TRACE_DEBUG("%s: ack the suspend ", __func__);
-          btif_a2dp_on_suspended((tBTA_AV_SUSPEND *)&p_av->suspend);
-        }
+          btif_a2dp_sink_on_suspended((tBTA_AV_SUSPEND *)&p_av->suspend);
       } else {
         BTIF_TRACE_DEBUG("%s: Other device locally started, don't ack the suspend", __func__);
       }
@@ -5017,7 +5013,8 @@ bt_status_t btif_avk_sink_execute_service(bool b_enable) {
 
     BTA_AvkEnable(BTA_SEC_AUTHENTICATE, BTA_AVK_FEAT_NO_SCO_SSPD|BTA_AVK_FEAT_RCCT|
                                         BTA_AVK_FEAT_METADATA|BTA_AVK_FEAT_VENDOR|
-                                        BTA_AVK_FEAT_ADV_CTRL|BTA_AVK_FEAT_RCTG|feat_delay_rpt,
+                                        BTA_AVK_FEAT_ADV_CTRL|BTA_AVK_FEAT_RCTG|
+                                        BTA_AVK_FEAT_BROWSE|feat_delay_rpt,
                                         bte_avk_callback);
 
     for (i = 0; i < btif_max_avk_clients ; i++) {

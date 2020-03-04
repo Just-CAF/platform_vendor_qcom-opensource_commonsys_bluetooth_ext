@@ -288,7 +288,7 @@ typedef struct {
   uint8_t tws_earbud_state;
 #endif
   bool rc_element_attr_app_req;  /* flag to track get_element_attr req */
-
+  uint16_t rc_peer_uid_counter;
 } btif_avk_rc_device_cb_t;
 
 typedef struct {
@@ -358,6 +358,16 @@ static const uint8_t status_code_map[] = {
     AVRC_STS_NO_AVAL_PLAYER,  /* BTRC_STS_NO_AVBL_PLAY */
     AVRC_STS_ADDR_PLAYER_CHG, /* BTRC_STS_ADDR_PLAY_CHGD */
 };
+
+static uint32_t whole_attr_ids[BTRC_MAX_ELEM_ATTR_SIZE] = {
+  BTRC_MEDIA_ATTR_TITLE,
+  BTRC_MEDIA_ATTR_ARTIST,
+  BTRC_MEDIA_ATTR_ALBUM,
+  BTRC_MEDIA_ATTR_TRACK_NUM,
+  BTRC_MEDIA_ATTR_NUM_TRACKS,
+  BTRC_MEDIA_ATTR_GENRE,
+  BTRC_MEDIA_ATTR_PLAYING_TIME,
+  BTRC_MEDIA_ATTR_COVER_ART};
 
 static void send_reject_response(uint8_t rc_handle, uint8_t label, uint8_t pdu,
                                  uint8_t status, uint8_t opcode);
@@ -923,6 +933,7 @@ void handle_avk_rc_connect(tBTA_AVK_RC_OPEN* p_rc_open) {
   /* on locally initiated connection we will get remote features as part of
    * connect */
   p_dev->rc_playing_uid = RC_INVALID_TRACK_ID;
+  p_dev->rc_peer_uid_counter = 0;
 
   RawAddress rc_addr = p_dev->rc_addr;
   if (p_dev->rc_features && bt_avk_rc_callbacks != NULL) {
@@ -4707,6 +4718,9 @@ static void handle_notification_response(tBTA_AVK_META_MSG* pmeta_msg,
         break;
 
       case AVRC_EVT_UIDS_CHANGE:
+        p_dev->rc_peer_uid_counter = p_rsp->param.uid_counter;
+        BTIF_TRACE_DEBUG("%s: updated uid counter to : %u", __func__,
+                         p_dev->rc_peer_uid_counter);
         break;
 
       case AVRC_EVT_TRACK_REACHED_END:
@@ -6259,6 +6273,67 @@ static bt_status_t set_addressed_player_cmd(RawAddress* bd_addr, uint16_t id) {
 }
 
 /***************************************************************************
+*
+* Function         get_item_attr_cmd
+*
+* Description      get item attribute specified by scope & UID
+*
+* Returns          BT_STATUS_SUCCESS if command issued successfully otherwise
+*                  BT_STATUS_FAIL.
+*
+**************************************************************************/
+static bt_status_t get_item_attr_cmd(RawAddress* bd_addr, uint8_t scope,
+                                     uint8_t* uid) {
+    BTIF_TRACE_DEBUG("%s: scope %d", __func__, scope);
+    btif_avk_rc_device_cb_t* p_dev = btif_avk_rc_get_device_by_bda(bd_addr);
+    if (p_dev == NULL) {
+      BTIF_TRACE_ERROR("%s: p_dev NULL", __func__);
+      return BT_STATUS_FAIL;
+    }
+
+    CHECK_RC_CONNECTED(p_dev);
+    CHECK_BR_CONNECTED(p_dev);
+
+    int idx = btif_avk_rc_get_idx_by_bda(bd_addr);
+    uint16_t uid_counter = p_dev->rc_peer_uid_counter;
+    if (idx == -1) {
+      BTIF_TRACE_ERROR("%s: idx is invalid", __func__);
+      return BT_STATUS_FAIL;
+    }
+
+    tAVRC_COMMAND avrc_cmd = {0};
+    avrc_cmd.get_attrs.pdu = AVRC_PDU_GET_ITEM_ATTRIBUTES;
+    avrc_cmd.get_attrs.status = AVRC_STS_NO_ERROR;
+    avrc_cmd.get_attrs.opcode = AVRC_OP_VENDOR;
+    avrc_cmd.get_attrs.scope = scope;
+    memcpy(avrc_cmd.get_attrs.uid, uid, AVRC_UID_SIZE);
+    avrc_cmd.get_attrs.uid_counter = uid_counter;
+    avrc_cmd.get_attrs.attr_count = BTRC_MAX_ELEM_ATTR_SIZE; /* PTS check attr*/
+    avrc_cmd.get_attrs.p_attr_list = whole_attr_ids;
+
+    BT_HDR* p_msg = NULL;
+    tAVRC_STS status = AVRC_BldCommand(&avrc_cmd, &p_msg);
+    if (status != AVRC_STS_NO_ERROR) {
+      BTIF_TRACE_ERROR("%s fail to build command status %d", __func__, status);
+      return BT_STATUS_FAIL;
+    }
+
+    avk_rc_transaction_t* p_transaction = NULL;
+    bt_status_t tran_status = get_transaction(&p_transaction, idx);
+    if (tran_status != BT_STATUS_SUCCESS || p_transaction == NULL) {
+      osi_free(p_msg);
+      BTIF_TRACE_ERROR("%s: fail to obtain transaction details. status: 0x%02x",
+                       __func__, tran_status);
+      return BT_STATUS_FAIL;
+    }
+
+    BTIF_TRACE_DEBUG("%s msgreq being sent out with label %d", __func__,
+                     p_transaction->lbl);
+    BTA_AvkMetaCmd(p_dev->rc_handle, p_transaction->lbl, AVRC_CMD_CTRL, p_msg);
+    return BT_STATUS_SUCCESS;
+}
+
+/***************************************************************************
  *
  * Function         avk_get_folder_items_cmd
  *
@@ -6300,7 +6375,8 @@ static bt_status_t avk_get_folder_items_cmd(RawAddress* bd_addr, uint8_t scope,
   avrc_cmd.get_items.scope = scope;
   avrc_cmd.get_items.start_item = start_item;
   avrc_cmd.get_items.end_item = end_item;
-  avrc_cmd.get_items.attr_count = 0; /* p_attr_list does not matter hence */
+  avrc_cmd.get_items.attr_count = BTRC_MAX_ELEM_ATTR_SIZE; /* attr list is needed by PTS */
+  avrc_cmd.get_items.p_attr_list = whole_attr_ids;
 
   BT_HDR* p_msg = NULL;
   tAVRC_STS status = AVRC_BldCommand(&avrc_cmd, &p_msg);
@@ -7134,6 +7210,7 @@ static const btrc_vendor_ctrl_interface_t btAvrcpCtrlVendorInterface = {
   sizeof(btrc_vendor_ctrl_interface_t),
   init_vendor,
   get_media_element_attributes_vendor,
+  get_item_attr_cmd,
   cleanup_vendor,
 };
 

@@ -1902,7 +1902,7 @@ void bta_avk_co_init(
 #endif
 
   /*A2DP Sink codecs*/
-  osi_property_get("persist.vendor.btstack.a2dp_sink_cap", value, "false");
+  osi_property_get("persist.vendor.btstack.a2dp_sink_cap", value, "sbc-aac-aptx");
   A2DP_SetSinkCodec(value);
   /*A2DP Sink codecs*/
 

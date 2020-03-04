@@ -69,6 +69,9 @@ typedef struct {
     bt_status_t (*get_media_element_attributes_vendor) (RawAddress *bd_addr, uint8_t num_attrib,
                     uint32_t *p_attr_ids);
 
+    /** get item attr */
+    bt_status_t (*get_item_attr_cmd)(RawAddress* bd_addr, uint8_t scope, uint8_t* uid);
+
     /** Closes the interface. */
     void  (*cleanup_vendor)( void );
 
