@@ -1792,6 +1792,21 @@ A2dpCodecs* bta_avk_get_a2dp_codecs(void) {
   return nullptr;
 }
 
+A2dpCodecs* bta_avk_get_a2dp_default_codecs(void) {
+  BTIF_TRACE_DEBUG("%s", __func__);
+  tBTA_AVK_CO_PEER* p_active_peer;
+  p_active_peer = bta_avk_co_get_active_peer();
+
+  if (p_active_peer == NULL) {
+    p_active_peer = &bta_avk_co_cb.peers[0];
+    BTIF_TRACE_DEBUG("%s no active peer, use the peer 0", __func__);
+  }
+  if (p_active_peer != NULL) {
+    return p_active_peer->codecs;
+  }
+  return nullptr;
+}
+
 A2dpCodecs* bta_avk_get_peer_a2dp_codecs(const RawAddress& bd_addr) {
   tBTA_AVK_CO_PEER* p_peer;
   size_t i;
