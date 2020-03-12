@@ -1951,10 +1951,7 @@ static bool btif_avk_state_opened_handler(btif_sm_event_t event, void* p_data,
           return false;
       }
 
-#ifndef AVK_BACKPORT
-      if (btif_avk_cb[index].peer_sep == AVDT_TSEP_SRC)
-          btif_a2dp_sink_set_rx_flush(false); /*  remove flush state, ready for streaming*/
-#endif
+      btif_a2dp_sink_set_rx_flush(false); /*  remove flush state, ready for streaming*/
       btif_sm_change_state(btif_avk_cb[index].sm_handle, BTIF_AVK_STATE_STARTED);
     } break;
 
@@ -2045,7 +2042,7 @@ static bool btif_avk_state_opened_handler(btif_sm_event_t event, void* p_data,
         }
 /* SPLITA2DP */
         if (is_multicast_supported && !btif_avk_cb[index].current_playing) {
-          APPL_TRACE_WARNING("%s:Non active device disconnected,continue streaming",__func__);
+          BTIF_TRACE_DEBUG("%s:Non active device disconnected,continue streaming",__func__);
         } else {
           btif_a2dp_on_stopped(NULL);
         }
@@ -2222,6 +2219,7 @@ static bool btif_avk_state_started_handler(btif_sm_event_t event, void* p_data,
 
   switch (event) {
     case BTIF_SM_ENTER_EVT:
+        btif_a2dp_sink_set_rx_flush(false);
 
       /* Already changed state to started, send acknowledgement
        * if start is pending
@@ -2641,7 +2639,7 @@ static bool btif_avk_state_started_handler(btif_sm_event_t event, void* p_data,
       btif_avk_cb[index].flags |= BTIF_AVK_FLAG_PENDING_STOP;
       BTIF_TRACE_DEBUG("%s: Stop the AVK Data channel", __func__);
       if (is_multicast_supported && !btif_avk_cb[index].current_playing) {
-        APPL_TRACE_WARNING("%s:Non active device disconnected,continue streaming",__func__);
+        BTIF_TRACE_DEBUG("%s:Non active device disconnected,continue streaming index:%d",__func__, index);
       } else {
         btif_a2dp_on_stopped((tBTA_AV_SUSPEND *)&p_av->suspend);
       }
@@ -2864,7 +2862,7 @@ static void btif_avk_handle_event(uint16_t event, char* p_param) {
 
     case BTIF_AVK_TRIGGER_HANDOFF_REQ_EVT:
       bt_addr = (RawAddress *)p_param;
-      BTIF_TRACE_WARNING("%s: device %s ",__func__, (*bt_addr).ToString().c_str());
+      BTIF_TRACE_WARNING("%s: device %s",__func__, (*bt_addr).ToString().c_str());
       previous_active_index = btif_avk_get_latest_device_idx_to_start();
       /* 1. SetActive Device -> Null */
       if (*bt_addr == RawAddress::kEmpty)
@@ -5322,11 +5320,11 @@ int btif_avk_get_current_playing_dev_idx(void)
 
   for (i = 0; i < btif_max_avk_clients; i++) {
     if (btif_avk_cb[i].current_playing == TRUE) {
-      BTIF_TRACE_DEBUG("current playing on index = %d", i);
+      BTIF_TRACE_DEBUG("%s: current playing on index = %d", __func__, i);
       return i;
     }
   }
-  BTIF_TRACE_DEBUG("current playing device not set on any idx");
+  BTIF_TRACE_DEBUG("%s: current playing device not set on any idx", __func__);
   return i;
 }
 
@@ -6310,20 +6308,24 @@ void btif_avk_initiate_sink_handoff(RawAddress bd_addr) {
 
   if ( idx < btif_max_avk_clients) {
     uint8_t* a2dp_codec_config = bta_avk_co_get_peer_codec_info(btif_avk_cb[idx].bta_handle);
-    if (a2dp_codec_config != NULL && btif_a2dp_sink_check_sho(a2dp_codec_config, idx)) {
-        BTIF_TRACE_DEBUG("%s SHO index:%d",__func__,idx);
-        btif_report_audio_state(BTAV_AUDIO_STATE_STARTED, &(btif_avk_cb[idx].peer_bda));
-        btif_avk_cb[idx].current_playing = true;
-        btif_avk_cb[!idx].current_playing = false;
-        if (btif_a2dp_sink_check_codec(a2dp_codec_config)) {
-            /* Before create a new audiotrack, we need to stop and delete old audiotrack. */
-            BTIF_TRACE_DEBUG("%s update codec and index",__func__);
-            btif_a2dp_sink_audio_handle_stop_decoding();
-            btif_a2dp_sink_clear_track_event();
-            btif_a2dp_sink_update_decoder(a2dp_codec_config, idx);
+    if (a2dp_codec_config != NULL) {
+        if (btif_a2dp_sink_check_sho(a2dp_codec_config, idx)) {
+            BTIF_TRACE_DEBUG("%s SHO index:%d",__func__,idx);
+            btif_report_audio_state(BTAV_AUDIO_STATE_STARTED, &(btif_avk_cb[idx].peer_bda));
+            btif_avk_cb[idx].current_playing = true;
+            btif_avk_cb[!idx].current_playing = false;
+            if (btif_a2dp_sink_check_codec(a2dp_codec_config)) {
+                /* Before create a new audiotrack, we need to stop and delete old audiotrack. */
+                BTIF_TRACE_DEBUG("%s update codec and index",__func__);
+                btif_a2dp_sink_audio_handle_stop_decoding();
+                btif_a2dp_sink_clear_track_event();
+                btif_a2dp_sink_update_decoder(a2dp_codec_config, idx);
+            } else {
+                BTIF_TRACE_DEBUG("%s update index only",__func__);
+                btif_a2dp_sink_update_decoder(NULL, idx);
+            }
         } else {
-            BTIF_TRACE_DEBUG("%s update index only",__func__);
-            btif_a2dp_sink_update_decoder(NULL, idx);
+            BTIF_TRACE_DEBUG("%s, no need SHO", __func__);
         }
     } else {
         BTIF_TRACE_DEBUG("%s, a2dp_codec_config is NULL", __func__);
