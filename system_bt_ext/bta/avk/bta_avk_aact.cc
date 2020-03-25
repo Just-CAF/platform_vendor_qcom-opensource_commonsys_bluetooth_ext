@@ -3255,9 +3255,13 @@ void bta_avk_str_closed(tBTA_AVK_SCB* p_scb, tBTA_AVK_DATA* p_data) {
   /* avdt setconfig, buffer the close event for 200ms for this case. this can  */
   /* avoid the cost in bta, btif, and l2cap layer, also avoid disconnect avrcp */
   /* connections.                                                              */
-  alarm_set_on_mloop(bta_avk_cb.avdt_close_timer[p_scb->hdi],
-    BTA_TIMEOUT_AVDT_CLOSE_MS,
-    bta_avk_avdt_close_timer_timeout, p_scb);
+  if(bta_avk_cb.avdt_close_timer[p_scb->hdi]) {
+    alarm_set_on_mloop(bta_avk_cb.avdt_close_timer[p_scb->hdi],
+      BTA_TIMEOUT_AVDT_CLOSE_MS,
+      bta_avk_avdt_close_timer_timeout, p_scb);
+  } else {
+    bta_avk_avdt_close_timer_timeout((void*) p_scb);
+  }
 }
 /*******************************************************************************
  *
