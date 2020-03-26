@@ -4770,6 +4770,11 @@ static void handle_notification_response(tBTA_AVK_META_MSG* pmeta_msg,
     BTIF_TRACE_DEBUG("%s: Notification completed: 0x%2X ", __func__,
                      p_rsp->event_id);
 
+    if(NULL == p_dev->rc_supported_event_list) {
+        BTIF_TRACE_ERROR("%s: p_dev->rc_supported_event_list NULL", __func__);
+        return;
+    }
+
     node = list_begin(p_dev->rc_supported_event_list);
 
     while (node != NULL) {
