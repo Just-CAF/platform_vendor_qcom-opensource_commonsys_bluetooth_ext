@@ -2800,6 +2800,8 @@ static void btif_avk_handle_event(uint16_t event, char* p_param) {
     case BTIF_AVK_SINK_CONFIG_REQ_EVT: {
       btif_avk_sink_config_req_t *config = (btif_avk_sink_config_req_t *)p_param;
       index = btif_avk_idx_by_bdaddr(&config->peer_bd);
+      if (btif_avk_cb[index].current_playing)
+        btif_avk_initiate_sink_handoff(config->peer_bd);
       BTIF_TRACE_DEBUG("%s: device %s index = %d event:%d", __func__,
           config->peer_bd.ToString().c_str(), index, BTIF_AVK_SINK_CONFIG_REQ_EVT);
       } break;
