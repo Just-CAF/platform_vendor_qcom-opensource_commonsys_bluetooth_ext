@@ -1533,62 +1533,13 @@ static bool btif_avk_state_closing_handler(btif_sm_event_t event, void* p_data, 
 
   switch (event) {
     case BTIF_SM_ENTER_EVT:
-      if (btif_avk_cb[index].peer_sep == AVDT_TSEP_SNK) {
-        /* Multicast/Soft Hand-off:
-         * If MC/SHO is enabled we need to keep/start playing on
-         * other device.
-         */
-        if (btif_avk_is_connected_on_other_idx(index)) {
-          if (btif_avk_is_playing()) {
-              APPL_TRACE_DEBUG("%s: Keep playing on other device", __func__);
-          } else {
-             if (btif_avk_cb[index].flags & BTIF_AVK_FLAG_LOCAL_SUSPEND_PENDING) {
-                 APPL_TRACE_DEBUG("%s: Not playing on other device: Stop media task as local suspend pending", __func__);
-                 btif_a2dp_on_stopped(NULL);
-             } else if (btif_avk_cb[index].current_playing) {
-                APPL_TRACE_DEBUG("%s: Not playing on other device: Set Flush as active device", __func__);
-                btif_a2dp_source_set_tx_flush(true);
-                btif_a2dp_source_stop_audio_req();
-             }
-          }
-        } else {
-          /* Single connections scenario:
-           * Immediately stop transmission of frames
-           * wait for audioflinger to stop a2dp
-           */
-          APPL_TRACE_DEBUG("%s: setting tx_flush to true.", __func__);
-          btif_a2dp_source_set_tx_flush(true);
-        }
-      }
-      if (btif_avk_cb[index].peer_sep == AVDT_TSEP_SRC && btif_avk_cb[index].current_playing)
+      if (btif_avk_cb[index].current_playing)
         btif_a2dp_sink_set_rx_flush(true);
       break;
 
     case BTA_AVK_STOP_EVT:
     case BTIF_AVK_STOP_STREAM_REQ_EVT:
-      if (btif_avk_cb[index].peer_sep == AVDT_TSEP_SNK) {
-        /* Dont stop in DUAL A2dp connections, as
-         * UIPC will keep waiting for Audio CTRL channel
-         * to get closed which is not required in Dual A2dp.
-         * We will stop only when only single A2dp conn is present.*/
-        if (btif_avk_is_connected_on_other_idx(index)) {
-          if (!btif_avk_is_playing() ||
-            (is_multicast_supported && btif_avk_cb[index].current_playing)) {
-            APPL_TRACE_WARNING("%s: Suspend the AVK Data channel", __func__);
-            //Stop media task
-            btif_a2dp_on_stopped(NULL);
-            if (is_multicast_supported && btif_avk_is_playing()) {
-              btif_avk_dispatch_sm_event(BTIF_AVK_SUSPEND_STREAM_REQ_EVT, NULL, 0);
-            }
-          }
-        } else {
-          /* immediately flush any pending tx frames while suspend is pending */
-          APPL_TRACE_WARNING("%s: Stop the AVK Data channel", __func__);
-          btif_a2dp_source_set_tx_flush(true);
-          btif_a2dp_on_stopped(NULL);
-        }
-      }
-      if (btif_avk_cb[index].peer_sep == AVDT_TSEP_SRC) {
+      if (btif_avk_cb[index].current_playing) {
         btif_a2dp_sink_set_rx_flush(true);
         btif_a2dp_on_stopped(NULL);
       }
@@ -2849,6 +2800,8 @@ static void btif_avk_handle_event(uint16_t event, char* p_param) {
     case BTIF_AVK_SINK_CONFIG_REQ_EVT: {
       btif_avk_sink_config_req_t *config = (btif_avk_sink_config_req_t *)p_param;
       index = btif_avk_idx_by_bdaddr(&config->peer_bd);
+      if (btif_avk_cb[index].current_playing)
+        btif_avk_initiate_sink_handoff(config->peer_bd);
       BTIF_TRACE_DEBUG("%s: device %s index = %d event:%d", __func__,
           config->peer_bd.ToString().c_str(), index, BTIF_AVK_SINK_CONFIG_REQ_EVT);
       } break;

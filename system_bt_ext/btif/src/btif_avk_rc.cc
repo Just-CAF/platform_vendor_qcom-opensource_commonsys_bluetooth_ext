@@ -4194,7 +4194,10 @@ bool avk_iterate_supported_event_list_for_timeout(void* data, void* cb_data) {
   btif_rc_supported_event_t* p_event = (btif_rc_supported_event_t*)data;
 
   if (p_event->label == label) {
-    list_remove(p_dev->rc_supported_event_list, p_event);
+    BTIF_TRACE_ERROR("%s: %s event:%d", __func__, p_dev->rc_addr.ToString().c_str(), p_event->event_id);
+    //bypass AVRC_EVT_PLAY_STATUS_CHANGE for sink sho
+    if (AVRC_EVT_PLAY_STATUS_CHANGE != p_event->event_id)
+      list_remove(p_dev->rc_supported_event_list, p_event);
     return false;
   }
   return true;
@@ -4769,6 +4772,11 @@ static void handle_notification_response(tBTA_AVK_META_MSG* pmeta_msg,
 
     BTIF_TRACE_DEBUG("%s: Notification completed: 0x%2X ", __func__,
                      p_rsp->event_id);
+
+    if(NULL == p_dev->rc_supported_event_list) {
+        BTIF_TRACE_ERROR("%s: p_dev->rc_supported_event_list NULL", __func__);
+        return;
+    }
 
     node = list_begin(p_dev->rc_supported_event_list);
 
