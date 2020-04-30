@@ -918,52 +918,62 @@ public final class Avrcp_ext {
                     deviceFeatures[deviceIndex].mFeatures =
                                  deviceFeatures[deviceIndex].mFeatures | BTRC_FEAT_ABSOLUTE_VOLUME;
                 }
-                deviceFeatures[deviceIndex].isAbsoluteVolumeSupportingDevice =
-                        ((deviceFeatures[deviceIndex].mFeatures &
-                        BTRC_FEAT_ABSOLUTE_VOLUME) != 0);
+                //Clear absolute volume supporting flag for other connected device
+                if(a2dpMulticast) {
+                    for (int i = 0; i < maxAvrcpConnections; i++ ) {
+                        if (deviceFeatures[i].mCurrentDevice != null && i != deviceIndex &&
+                        deviceFeatures[i].isAbsoluteVolumeSupportingDevice) {
+                            Log.d(TAG, "clear isAbsoluteVolumeSupportingDevice for index:  " + i);
+                            deviceFeatures[i].isAbsoluteVolumeSupportingDevice = false;
+                        }
+                    }
+                }
                 //Do not update the absolute volume in multicast mode
                 if (!a2dpMulticast) {
-                //store Absolute volume support
-                   Log.d(TAG,"absolute volume support device is present " + mDeviceAbsVolMap.containsKey(deviceFeatures[deviceIndex].mCurrentDevice));
-                if (!mDeviceAbsVolMap.containsKey(deviceFeatures[deviceIndex].mCurrentDevice) ||
-                    (mDeviceAbsVolMap.containsKey(deviceFeatures[deviceIndex].mCurrentDevice) &&
-                   mDeviceAbsVolMap.get(deviceFeatures[deviceIndex].mCurrentDevice) !=
-                   deviceFeatures[deviceIndex].isAbsoluteVolumeSupportingDevice)) {
-                   SharedPreferences.Editor absVolumeMapEditor = getAbsVolumeMap().edit();
-                   mDeviceAbsVolMap.put(deviceFeatures[deviceIndex].mCurrentDevice, (boolean)deviceFeatures[deviceIndex].isAbsoluteVolumeSupportingDevice);
-                   absVolumeMapEditor.putBoolean(deviceFeatures[deviceIndex].mCurrentDevice.getAddress(), deviceFeatures[deviceIndex].isAbsoluteVolumeSupportingDevice);
-                   // Always use apply() since it is asynchronous, otherwise the call can hang waiting for
-                   // storage to be written.
-                   absVolumeMapEditor.apply();
-                   Log.d(TAG,"absolute volume support data saved");
-                }
-                BATService mBatService = BATService.getBATService();
-                if ((mBatService != null) && mBatService.isBATActive()) {
-                    Log.d(TAG,"MSG_NATIVE_REQ_GET_RC_FEATURES BA Active, update absvol support as true  ");
-                    mAudioManager.avrcpSupportsAbsoluteVolume(device.getAddress(),
-                            true);
-                } else if (device.isTwsPlusDevice()) {
-                    if (twsShoEnabled) {
-                        //SHO is enabled, check if TWS+ device is active
-                        int index = -1;
-                        if (mDevice != null) index = getIndexForDevice(mDevice);
-                        if (mDevice == null || (mDevice != null && (mDevice.isTwsPlusDevice() ||
-                            (index != INVALID_DEVICE_INDEX && isAbsoluteVolumeSupported(index))))) {
-                            Log.v(TAG,"TWS+ device, update abs vol as true in RC FEATURE handle");
+                    deviceFeatures[deviceIndex].isAbsoluteVolumeSupportingDevice =
+                            ((deviceFeatures[deviceIndex].mFeatures &
+                            BTRC_FEAT_ABSOLUTE_VOLUME) != 0);
+                    //store Absolute volume support
+                    Log.d(TAG,"absolute volume support device is present " + mDeviceAbsVolMap.containsKey(deviceFeatures[deviceIndex].mCurrentDevice));
+                    if (!mDeviceAbsVolMap.containsKey(deviceFeatures[deviceIndex].mCurrentDevice) ||
+                        (mDeviceAbsVolMap.containsKey(deviceFeatures[deviceIndex].mCurrentDevice) &&
+                    mDeviceAbsVolMap.get(deviceFeatures[deviceIndex].mCurrentDevice) !=
+                    deviceFeatures[deviceIndex].isAbsoluteVolumeSupportingDevice)) {
+                    SharedPreferences.Editor absVolumeMapEditor = getAbsVolumeMap().edit();
+                    mDeviceAbsVolMap.put(deviceFeatures[deviceIndex].mCurrentDevice, (boolean)deviceFeatures[deviceIndex].isAbsoluteVolumeSupportingDevice);
+                    absVolumeMapEditor.putBoolean(deviceFeatures[deviceIndex].mCurrentDevice.getAddress(), deviceFeatures[deviceIndex].isAbsoluteVolumeSupportingDevice);
+                    // Always use apply() since it is asynchronous, otherwise the call can hang waiting for
+                    // storage to be written.
+                    absVolumeMapEditor.apply();
+                    Log.d(TAG,"absolute volume support data saved");
+                    }
+                    BATService mBatService = BATService.getBATService();
+                    if ((mBatService != null) && mBatService.isBATActive()) {
+                        Log.d(TAG,"MSG_NATIVE_REQ_GET_RC_FEATURES BA Active, update absvol support as true  ");
+                        mAudioManager.avrcpSupportsAbsoluteVolume(device.getAddress(),
+                                true);
+                    } else if (device.isTwsPlusDevice()) {
+                        if (twsShoEnabled) {
+                            //SHO is enabled, check if TWS+ device is active
+                            int index = -1;
+                            if (mDevice != null) index = getIndexForDevice(mDevice);
+                            if (mDevice == null || (mDevice != null && (mDevice.isTwsPlusDevice() ||
+                                (index != INVALID_DEVICE_INDEX && isAbsoluteVolumeSupported(index))))) {
+                                Log.v(TAG,"TWS+ device, update abs vol as true in RC FEATURE handle");
+                                mAudioManager.avrcpSupportsAbsoluteVolume(device.getAddress(), true);
+                                if (updateAbsVolume) updateAbsVolume = false;
+                            } else {
+                                updateAbsVolume = true;
+                                Log.d(TAG,"TWS+ is not active, set absVolume flag later");
+                            }
+                        } else
                             mAudioManager.avrcpSupportsAbsoluteVolume(device.getAddress(), true);
-                            if (updateAbsVolume) updateAbsVolume = false;
-                        } else {
-                            updateAbsVolume = true;
-                            Log.d(TAG,"TWS+ is not active, set absVolume flag later");
-                        }
-                    } else
-                        mAudioManager.avrcpSupportsAbsoluteVolume(device.getAddress(), true);
-                } else if (mDevice != null && Objects.equals(mDevice, device)) {
-                    mAudioManager.avrcpSupportsAbsoluteVolume(device.getAddress(),
-                        isAbsoluteVolumeSupported(deviceIndex));
-                    Log.v(TAG,"update audio manager for abs vol state = "
-                            + isAbsoluteVolumeSupported(deviceIndex));
-                }
+                    } else if (mDevice != null && Objects.equals(mDevice, device)) {
+                        mAudioManager.avrcpSupportsAbsoluteVolume(device.getAddress(),
+                            isAbsoluteVolumeSupported(deviceIndex));
+                        Log.v(TAG,"update audio manager for abs vol state = "
+                                + isAbsoluteVolumeSupported(deviceIndex));
+                    }
                 }
                 deviceFeatures[deviceIndex].mLastPassthroughcmd = KeyEvent.KEYCODE_UNKNOWN;
 
@@ -3534,14 +3544,16 @@ public final class Avrcp_ext {
      * This is called from A2dpStateMachine to set A2dp Connected device to null on disconnect.
      */
     public void setAvrcpDisconnectedDevice(BluetoothDevice device) {
-        Log.i(TAG,"Enter setAvrcpDisconnectedDevice");
+        boolean a2dpMulticast = SystemProperties.getBoolean("persist.vendor.service.bt.a2dp_multicast_mode", false);
+        Log.i(TAG,"Enter setAvrcpDisconnectedDevice, a2dpMulticast: " + a2dpMulticast);
         int deviceIndex = INVALID_DEVICE_INDEX;
         for (int i = 0; i < maxAvrcpConnections; i++ ) {
             if (deviceFeatures[i].mCurrentDevice != null && device != null &&
                     Objects.equals(deviceFeatures[i].mCurrentDevice, device)) {
                 deviceIndex = i;
                 if (deviceFeatures[i].isActiveDevice &&
-                      deviceFeatures[i].isAbsoluteVolumeSupportingDevice) {
+                      deviceFeatures[i].isAbsoluteVolumeSupportingDevice && !a2dpMulticast) {
+                    Log.i(TAG,"store volume for disconnected active device");
                     storeVolumeForDevice(device);
                     disconnectedActiveDevice = device;
                 }
