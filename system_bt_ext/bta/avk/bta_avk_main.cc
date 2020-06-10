@@ -564,7 +564,7 @@ static void bta_avk_api_register(tBTA_AVK_DATA* p_data) {
 #if (BTA_AR_INCLUDED == TRUE)
       bta_ar_reg_avdt(&reg, bta_avk_conn_cback, BTA_ID_AVK);
 #endif
-      bta_sys_role_chg_register(&bta_avk_sys_rs_cback);
+      bta_sys_avk_role_chg_register(bta_avk_sys_rs_cback);
 
       /* create remote control TG service if required */
       if (bta_avk_cb.features & (BTA_AVK_FEAT_RCTG)) {
